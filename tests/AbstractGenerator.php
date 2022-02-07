@@ -1,4 +1,5 @@
 <?php
+
 namespace GoetasWebservices\Xsd\XsdToPhp\Tests;
 
 use Composer\Autoload\ClassLoader;
@@ -10,12 +11,14 @@ use GoetasWebservices\Xsd\XsdToPhp\Php\PathGenerator\Psr4PathGenerator as PhpPsr
 use GoetasWebservices\Xsd\XsdToPhp\Writer\JMSWriter;
 use GoetasWebservices\Xsd\XsdToPhp\Writer\PHPClassWriter;
 use GoetasWebservices\Xsd\XsdToPhp\Writer\PHPWriter;
+use JMS\Serializer\EventDispatcher\EventDispatcherInterface;
 use JMS\Serializer\Handler\HandlerRegistryInterface;
+use JMS\Serializer\SerializerBuilder;
 
 abstract class AbstractGenerator
 {
-    protected $targetNs = array();
-    protected $aliases = array();
+    protected $targetNs = [];
+    protected $aliases = [];
 
     protected $phpDir;
     protected $jmsDir;
@@ -25,7 +28,7 @@ abstract class AbstractGenerator
 
     private $loader;
 
-    public function __construct(array $targetNs, array $aliases = array(), $tmp = null)
+    public function __construct(array $targetNs, array $aliases = [], $tmp = null)
     {
         $tmp = $tmp ?: sys_get_temp_dir();
 
@@ -40,16 +43,17 @@ abstract class AbstractGenerator
 
         $this->loader = new ClassLoader();
         foreach ($this->targetNs as $phpNs) {
-            $this->loader->addPsr4($phpNs . "\\", $this->phpDir . "/" . $this->slug($phpNs));
+            $this->loader->addPsr4($phpNs . '\\', $this->phpDir . '/' . $this->slug($phpNs));
         }
     }
 
     private static function delTree($dir)
     {
-        $files = array_diff(scandir($dir), array('.', '..'));
+        $files = array_diff(scandir($dir), ['.', '..']);
         foreach ($files as $file) {
             (is_dir("$dir/$file")) ? self::delTree("$dir/$file") : unlink("$dir/$file");
         }
+
         return rmdir($dir);
     }
 
@@ -71,9 +75,9 @@ abstract class AbstractGenerator
     public function cleanDirectories()
     {
         foreach ($this->targetNs as $phpNs) {
-            $phpDir = $this->phpDir . "/" . $this->slug($phpNs);
-            $jmsDir = $this->jmsDir . "/" . $this->slug($phpNs);
-            $validationDir = $this->validationDir . "/" . $this->slug($phpNs);
+            $phpDir = $this->phpDir . '/' . $this->slug($phpNs);
+            $jmsDir = $this->jmsDir . '/' . $this->slug($phpNs);
+            $validationDir = $this->validationDir . '/' . $this->slug($phpNs);
 
             foreach ([$phpDir, $jmsDir, $validationDir] as $dir) {
                 if (is_dir($dir)) {
@@ -86,22 +90,29 @@ abstract class AbstractGenerator
         }
     }
 
-    public function buildSerializer($callback = null, array $metadataDirs = array())
+    public function buildSerializer($handlersCallback = null, array $metadataDirs = [], $listenersCallback = null)
     {
-        $serializerBuilder = \JMS\Serializer\SerializerBuilder::create();
-        $serializerBuilder->configureHandlers(function (HandlerRegistryInterface $h) use ($callback, $serializerBuilder) {
+        $serializerBuilder = SerializerBuilder::create();
+        $serializerBuilder->configureHandlers(function (HandlerRegistryInterface $h) use ($handlersCallback, $serializerBuilder) {
             $serializerBuilder->addDefaultHandlers();
-            if ($callback) {
-                call_user_func($callback, $h);
+            if ($handlersCallback) {
+                call_user_func($handlersCallback, $h);
+            }
+        });
+
+        $serializerBuilder->configureListeners(function (EventDispatcherInterface $d) use ($listenersCallback, $serializerBuilder) {
+            $serializerBuilder->addDefaultListeners();
+            if ($listenersCallback) {
+                call_user_func($listenersCallback, $d);
             }
         });
 
         foreach ($this->targetNs as $phpNs) {
-            $metadataDirs[$phpNs] = $this->jmsDir . "/" . $this->slug($phpNs);
+            $metadataDirs[$phpNs] = $this->jmsDir . '/' . $this->slug($phpNs);
         }
 
         foreach ($metadataDirs as $php => $dir) {
-            if (!is_dir($dir)){
+            if (!is_dir($dir)) {
                 mkdir($dir, 0777, true);
             }
             $serializerBuilder->addMetadataDir($dir, $php);
@@ -113,6 +124,7 @@ abstract class AbstractGenerator
     public function registerAutoloader()
     {
         $this->loader->register();
+
         return $this->loader;
     }
 
@@ -126,9 +138,9 @@ abstract class AbstractGenerator
      */
     protected function writePHP(array $items)
     {
-        $paths = array();
+        $paths = [];
         foreach ($this->targetNs as $phpNs) {
-            $paths[$phpNs . "\\"] = $this->phpDir . "/" . $this->slug($phpNs);
+            $paths[$phpNs . '\\'] = $this->phpDir . '/' . $this->slug($phpNs);
         }
 
         $pathGenerator = new PhpPsr4PathGenerator($paths);
@@ -143,9 +155,9 @@ abstract class AbstractGenerator
      */
     protected function writeJMS(array $items)
     {
-        $paths = array();
+        $paths = [];
         foreach ($this->targetNs as $phpNs) {
-            $paths[$phpNs . "\\"] = $this->jmsDir . "/" . $this->slug($phpNs);
+            $paths[$phpNs . '\\'] = $this->jmsDir . '/' . $this->slug($phpNs);
         }
 
         $pathGenerator = new JmsPsr4PathGenerator($paths);
@@ -159,9 +171,9 @@ abstract class AbstractGenerator
      */
     protected function writeValidation(array $items)
     {
-        $paths = array();
+        $paths = [];
         foreach ($this->targetNs as $phpNs) {
-            $paths[$phpNs . "\\"] = $this->validationDir;
+            $paths[$phpNs . '\\'] = $this->validationDir;
         }
 
         $pathGenerator = new JmsPsr4PathGenerator($paths);

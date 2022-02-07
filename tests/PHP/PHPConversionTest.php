@@ -1,17 +1,17 @@
 <?php
+
 namespace GoetasWebservices\Xsd\XsdToPhp\Tests\JmsSerializer\OTA;
 
+use GoetasWebservices\XML\XSDReader\SchemaReader;
 use GoetasWebservices\Xsd\XsdToPhp\Naming\ShortNamingStrategy;
 use GoetasWebservices\Xsd\XsdToPhp\Php\ClassGenerator;
 use GoetasWebservices\Xsd\XsdToPhp\Php\PhpConverter;
-use GoetasWebservices\XML\XSDReader\SchemaReader;
 
 class PHPConversionTest extends \PHPUnit_Framework_TestCase
 {
-
     /**
-     *
      * @param mixed $xml
+     *
      * @return \Laminas\Code\Generator\ClassGenerator[]
      */
     protected function getClasses($xml)
@@ -24,7 +24,7 @@ class PHPConversionTest extends \PHPUnit_Framework_TestCase
 
         if (!is_array($xml)) {
             $xml = [
-                'schema.xsd' => $xml
+                'schema.xsd' => $xml,
             ];
         }
         $schemas = [];
@@ -33,12 +33,13 @@ class PHPConversionTest extends \PHPUnit_Framework_TestCase
         }
         $items = $phpcreator->convert($schemas);
 
-        $classes = array();
+        $classes = [];
         foreach ($items as $k => $item) {
             if ($codegen = $generator->generate($item)) {
                 $classes[$k] = $codegen;
             }
         }
+
         return $classes;
     }
 
@@ -94,7 +95,6 @@ class PHPConversionTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue($codegen->hasMethod('__toString'));
     }
 
-
     public function testNoMulteplicity()
     {
         $xml = '
@@ -137,7 +137,7 @@ class PHPConversionTest extends \PHPUnit_Framework_TestCase
 
         $items = $this->getClasses($xml);
 
-        $this->assertCount(1, $items);
+        $this->assertCount(2, $items);
 
         $codegen = $items['Example\SingleType'];
         $this->assertTrue($codegen->hasMethod('issetId'));
@@ -148,7 +148,6 @@ class PHPConversionTest extends \PHPUnit_Framework_TestCase
 
         $this->assertNull($codegen->getMethod('issetId')->getParameters()['index']->getType());
         $this->assertNull($codegen->getMethod('issetId')->getParameters()['index']->getType());
-
     }
 
     public function testNestedMulteplicity()
@@ -174,7 +173,7 @@ class PHPConversionTest extends \PHPUnit_Framework_TestCase
 
         $items = $this->getClasses($xml);
 
-        $this->assertCount(2, $items);
+        $this->assertCount(3, $items);
 
         $single = $items['Example\SingleType'];
         $this->assertTrue($single->hasMethod('issetId'));
@@ -189,6 +188,9 @@ class PHPConversionTest extends \PHPUnit_Framework_TestCase
 
         $this->assertTrue($ary->hasMethod('getIdB'));
         $this->assertTrue($ary->hasMethod('setIdB'));
+
+        $ary = $items['Example\AryType'];
+        $this->assertTrue($ary->hasMethod('addToIdA'));
     }
 
     public function testMultipleArrayTypes()
@@ -214,12 +216,15 @@ class PHPConversionTest extends \PHPUnit_Framework_TestCase
 
         $items = $this->getClasses($xml);
 
-        $this->assertCount(1, $items);
+        $this->assertCount(2, $items);
 
         $single = $items['Example\SingleType'];
         $this->assertTrue($single->hasMethod('addToA'));
         $this->assertTrue($single->hasMethod('addToB'));
 
+        $this->assertNotEmpty($single->getMethod('addToB')->getParameters()['string']);
+
+        // this is not $items['Example\ArrayOfStrings']; important
     }
 
     public function testSimpleMulteplicity()
@@ -247,5 +252,33 @@ class PHPConversionTest extends \PHPUnit_Framework_TestCase
 
         $this->assertTrue($single->hasMethod('getId'));
         $this->assertTrue($single->hasMethod('setId'));
+    }
+
+    public function testNillableElement()
+    {
+        $xml = '
+            <xs:schema targetNamespace="http://www.example.com"
+            xmlns:xs="http://www.w3.org/2001/XMLSchema">
+                <xs:complexType name="single">
+                    <xs:all>
+                        <xs:element name="date1" type="xs:date" nillable="true"/>
+                        <xs:element name="date2" type="xs:date"/>
+                        <xs:element name="str1" type="xs:string" nillable="true"/>
+                        <xs:element name="str2" type="xs:string"/>
+                    </xs:all>
+                </xs:complexType>
+            </xs:schema>';
+
+        $items = $this->getClasses($xml);
+        $codegen = $items['Example\SingleType'];
+
+        $this->assertTrue($codegen->hasMethod('setDate1'));
+        $this->assertNull($codegen->getMethod('setDate1')->getParameters()['date1']->getDefaultValue()->getValue());
+        $this->assertTrue($codegen->hasMethod('setDate2'));
+        $this->assertNull($codegen->getMethod('setDate2')->getParameters()['date2']->getDefaultValue());
+        $this->assertTrue($codegen->hasMethod('setStr1'));
+        $this->assertNull($codegen->getMethod('setStr1')->getParameters()['str1']->getDefaultValue());
+        $this->assertTrue($codegen->hasMethod('setStr2'));
+        $this->assertNull($codegen->getMethod('setStr2')->getParameters()['str2']->getDefaultValue());
     }
 }

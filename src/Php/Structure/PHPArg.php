@@ -1,15 +1,17 @@
 <?php
+
 namespace GoetasWebservices\Xsd\XsdToPhp\Php\Structure;
 
 class PHPArg
 {
-
     protected $doc;
 
     protected $type;
 
     protected $name;
 
+    protected $nullable = false;
+    
     protected $default;
 
     public function __construct($name = null, $type = null)
@@ -26,6 +28,7 @@ class PHPArg
     public function setDoc($doc)
     {
         $this->doc = $doc;
+
         return $this;
     }
 
@@ -40,6 +43,7 @@ class PHPArg
     public function setType(PHPClass $type)
     {
         $this->type = $type;
+
         return $this;
     }
 
@@ -51,9 +55,22 @@ class PHPArg
     public function setName($name)
     {
         $this->name = $name;
+
         return $this;
     }
 
+    public function getNullable()
+    {
+        return $this->nullable;
+    }
+
+    public function setNullable($nullable)
+    {
+        $this->nullable = $nullable;
+        
+        return $this;
+    }
+    
     public function getDefault()
     {
         return $this->default;
@@ -62,6 +79,7 @@ class PHPArg
     public function setDefault($default)
     {
         $this->default = $default;
+
         return $this;
     }
 }
