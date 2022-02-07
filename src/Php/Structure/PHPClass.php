@@ -1,14 +1,16 @@
 <?php
+
 namespace GoetasWebservices\Xsd\XsdToPhp\Php\Structure;
 
 class PHPClass
 {
-
     protected $name;
 
     protected $namespace;
 
     protected $doc;
+
+    protected $implements = [];
 
     public static function createFromFQCN($className)
     {
@@ -20,7 +22,16 @@ class PHPClass
     }
 
     /**
+     * @return array
+     */
+    public function getImplements(): array
+    {
+        return $this->implements;
+    }
+
+    /**
      * @param bool $onlyParent
+     *
      * @return PHPProperty
      */
     public function isSimpleType($onlyParent = false)
@@ -34,9 +45,14 @@ class PHPClass
             }
         } else {
             if ($this->hasPropertyInHierarchy('__value') && count($this->getPropertiesInHierarchy()) === 1) {
-                return $this->getPropertyInHierarchy("__value");
+                return $this->getPropertyInHierarchy('__value');
             }
         }
+    }
+
+    public function setImplements(array $fqcn)
+    {
+        $this->implements = $fqcn;
     }
 
     public function getPhpType()
@@ -45,9 +61,11 @@ class PHPClass
             if ($this->isNativeType()) {
                 return $this->getName();
             }
-            return "\\" . $this->getName();
+
+            return '\\' . $this->getName();
         }
-        return "\\" . $this->getFullName();
+
+        return '\\' . $this->getFullName();
     }
 
     public function isNativeType()
@@ -60,10 +78,9 @@ class PHPClass
             'array',
             'callable',
 
-            'mixed' //todo this is not a php type but it's needed for now to allow mixed return tags
+            'mixed', //todo this is not a php type but it's needed for now to allow mixed return tags
         ]);
     }
-
 
     public function __construct($name = null, $namespace = null)
     {
@@ -79,6 +96,7 @@ class PHPClass
     public function setName($name)
     {
         $this->name = $name;
+
         return $this;
     }
 
@@ -90,6 +108,7 @@ class PHPClass
     public function setNamespace($namespace)
     {
         $this->namespace = $namespace;
+
         return $this;
     }
 
@@ -101,6 +120,7 @@ class PHPClass
     public function setDoc($doc)
     {
         $this->doc = $doc;
+
         return $this;
     }
 
@@ -114,49 +134,47 @@ class PHPClass
         return "{$this->namespace}\\{$this->name}";
     }
 
-    protected $checks = array();
+    protected $checks = [];
 
     /**
-     *
      * @var PHPConstant[]
      */
-    protected $constants = array();
+    protected $constants = [];
 
     /**
-     *
      * @var PHPProperty[]
      */
-    protected $properties = array();
+    protected $properties = [];
 
     /**
-     *
      * @param
      *            $property
+     *
      * @return array
      */
     public function getChecks($property)
     {
-        return isset($this->checks[$property]) ? $this->checks[$property] : array();
+        return isset($this->checks[$property]) ? $this->checks[$property] : [];
     }
 
     /**
-     *
      * @param
      *            $property
      * @param
      *            $check
      * @param
      *            $value
+     *
      * @return $this
      */
     public function addCheck($property, $check, $value)
     {
         $this->checks[$property][$check][] = $value;
+
         return $this;
     }
 
     /**
-     *
      * @return PHPProperty[]
      */
     public function getProperties()
@@ -165,8 +183,8 @@ class PHPClass
     }
 
     /**
-     *
      * @param string $name
+     *
      * @return bool
      */
     public function hasProperty($name)
@@ -175,40 +193,49 @@ class PHPClass
     }
 
     /**
-     *
      * @param string $name
+     *
      * @return bool
      */
     public function hasPropertyInHierarchy($name)
     {
+        if (count($this->getProperties()) > 1 || (count($this->getProperties()) > 0 && !$this->hasProperty($name))) {
+            return false;
+        }
         if ($this->hasProperty($name)) {
             return true;
         }
         if (($this instanceof PHPClass) && $this->getExtends() && $this->getExtends()->hasPropertyInHierarchy($name)) {
             return true;
         }
+
         return false;
     }
 
     /**
-     *
      * @param string $name
+     *
      * @return PHPProperty
      */
     public function getPropertyInHierarchy($name)
     {
+        if (count($this->getProperties()) > 1 || (count($this->getProperties()) > 0 && !$this->hasProperty($name))) {
+            return null;
+        }
+
         if ($this->hasProperty($name)) {
             return $this->getProperty($name);
         }
         if (($this instanceof PHPClass) && $this->getExtends() && $this->getExtends()->hasPropertyInHierarchy($name)) {
             return $this->getExtends()->getPropertyInHierarchy($name);
         }
+
         return null;
     }
 
     /**
-     *
      * @param string $name
+     *
      * @return PHPProperty
      */
     public function getPropertiesInHierarchy()
@@ -223,8 +250,8 @@ class PHPClass
     }
 
     /**
-     *
      * @param string $name
+     *
      * @return PHPProperty
      */
     public function getProperty($name)
@@ -233,30 +260,26 @@ class PHPClass
     }
 
     /**
-     *
-     * @param PHPProperty $property
      * @return $this
      */
     public function addProperty(PHPProperty $property)
     {
         $this->properties[$property->getName()] = $property;
+
         return $this;
     }
 
     /**
-     *
      * @var bool
      */
     protected $abstract;
 
     /**
-     *
      * @var PHPClass
      */
     protected $extends;
 
     /**
-     *
      * @return PHPClass
      */
     public function getExtends()
@@ -265,13 +288,12 @@ class PHPClass
     }
 
     /**
-     *
-     * @param PHPClass $extends
      * @return PHPClass
      */
     public function setExtends(PHPClass $extends)
     {
         $this->extends = $extends;
+
         return $this;
     }
 
@@ -282,7 +304,8 @@ class PHPClass
 
     public function setAbstract($abstract)
     {
-        $this->abstract = (bool)$abstract;
+        $this->abstract = (bool) $abstract;
+
         return $this;
     }
 }
