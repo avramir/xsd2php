@@ -5,8 +5,9 @@ namespace GoetasWebservices\Xsd\XsdToPhp\Tests\Converter\Validator;
 use GoetasWebservices\XML\XSDReader\SchemaReader;
 use GoetasWebservices\Xsd\XsdToPhp\Jms\YamlValidatorConverter;
 use GoetasWebservices\Xsd\XsdToPhp\Naming\ShortNamingStrategy;
+use PHPUnit\Framework\TestCase;
 
-class Xsd2ValidatorTest extends \PHPUnit_Framework_TestCase
+class Xsd2ValidatorTest extends TestCase
 {
     /**
      * @var YamlValidatorConverter
@@ -21,7 +22,7 @@ class Xsd2ValidatorTest extends \PHPUnit_Framework_TestCase
     /**
      * Set up converter and reader properties.
      */
-    public function setUp()
+    public function setUp(): void
     {
         $this->converter = new YamlValidatorConverter(new ShortNamingStrategy());
         $this->converter->addNamespace('http://www.example.com', 'Example');
@@ -125,11 +126,33 @@ class Xsd2ValidatorTest extends \PHPUnit_Framework_TestCase
             ],
             // pattern / Regex
             [
+                '<xs:pattern value="\\p{IsBasicLatin}+\\p{IsLatin-1Supplement}"/>',
+                [
+                    [
+                        'Regex' => [ // adds [] parenthesis
+                            'pattern' => '~[\x{0000}-\x{007F}]+[\x{0080}-\x{00FF}]~u',
+                            'groups' => ['xsd_rules'],
+                        ],
+                    ],
+                ],
+            ],
+            [
+                '<xs:pattern value="[A-Z\\p{IsBasicLatin}\\p{IsLatin-1Supplement}]"/>',
+                [
+                    [
+                        'Regex' => [
+                            'pattern' => '~[\x{0000}-\x{007F}\x{0080}-\x{00FF}]~u',
+                            'groups' => ['xsd_rules'],
+                        ],
+                    ],
+                ],
+            ],
+            [
                 '<xs:pattern value="\\([0-9]{2}\\)\\s[0-9]{4}-[0-9]{4,5}"/>',
                 [
                     [
                         'Regex' => [
-                            'pattern' => '~\\([0-9]{2}\\)\\s[0-9]{4}-[0-9]{4,5}~',
+                            'pattern' => '~\\([0-9]{2}\\)\\s[0-9]{4}-[0-9]{4,5}~u',
                             'groups' => ['xsd_rules'],
                         ],
                     ],

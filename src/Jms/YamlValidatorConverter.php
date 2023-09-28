@@ -77,12 +77,19 @@ class YamlValidatorConverter extends YamlConverter
         $rules = [];
 
         if (($restrictions = $type->getRestriction()) && $checks = $restrictions->getChecks()) {
+            $propertyType = isset($property['type']) ? $property['type'] : null;
             foreach ($checks as $key => $check) {
                 switch ($key) {
                     case 'enumeration':
                         $rules[] = [
                             'Choice' => [
-                                'choices' => array_map(function ($enum) {
+                                'choices' => array_map(function ($enum) use ($propertyType) {
+                                    if ($propertyType === 'int') {
+                                        return (int)$enum['value'];
+                                    }
+                                    if ($propertyType === 'float') {
+                                        return (float)$enum['value'];
+                                    }
                                     return $enum['value'];
                                 }, $check),
                             ],
@@ -136,8 +143,24 @@ class YamlValidatorConverter extends YamlConverter
                         break;
                     case 'pattern':
                         foreach ($check as $item) {
+                            // initial support for https://www.w3.org/TR/xsd-unicode-blocknames/
+                            // not supported by standard php regex implementation
+                            // \p{IsBasicLatin} represents a range, but the expression might be alraedy in a range,
+                            // so we try our best and detect it if is in a range or not
+                            $regexPattern =  $item['value'];
+                            $unicodeClasses = [
+                                '\p{IsBasicLatin}' => '\x{0000}-\x{007F}',
+                                '\p{IsLatin-1Supplement}' => '\x{0080}-\x{00FF}',
+                            ];
+                            foreach ($unicodeClasses as $from => $to) {
+                                if (preg_match('~\[.*'.preg_quote($from, '~').'.*\]~', $regexPattern)) {
+                                    $regexPattern = str_replace($from, $to, $regexPattern);
+                                } else {
+                                    $regexPattern = str_replace($from, "[$to]", $regexPattern);
+                                }
+                            }
                             $rules[] = [
-                                'Regex' => ['pattern' => "~{$item['value']}~"],
+                                'Regex' => ['pattern' => "~{$regexPattern}~u"],
                             ];
                         }
                         break;
@@ -250,7 +273,7 @@ class YamlValidatorConverter extends YamlConverter
      * from a schema attribute including required rule.
      *
      * @param AttributeItem $element
-     * @param bool          $arrayize
+     * @param bool $arrayize
      */
     private function loadValidatorAttribute(array &$property, AttributeItem $attribute)
     {
@@ -273,8 +296,8 @@ class YamlValidatorConverter extends YamlConverter
      * Override necessary to improve method to load validations from schema type.
      *
      * @param PHPClass $class
-     * @param array    $data
-     * @param string   $name
+     * @param array $data
+     * @param string $name
      */
     protected function visitSimpleType(&$class, &$data, SimpleType $type, $name)
     {
@@ -295,7 +318,7 @@ class YamlValidatorConverter extends YamlConverter
      * Override necessary to improve method to load validations from schema element.
      *
      * @param PHPClass $class
-     * @param bool     $arrayize
+     * @param bool $arrayize
      *
      * @return PHPProperty
      */
@@ -328,8 +351,8 @@ class YamlValidatorConverter extends YamlConverter
      * Responsible for handler all properties from extension types.
      *
      * @param PHPClass $class
-     * @param array    $data
-     * @param string   $parentName
+     * @param array $data
+     * @param string $parentName
      */
     protected function &handleClassExtension(&$class, &$data, Type $type, $parentName)
     {
